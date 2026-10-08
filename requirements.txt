@@ -1,0 +1,14 @@
+streamlit
+faiss-cpu
+numpy
+pymupdf
+pytesseract
+pillow
+langchain-huggingface
+langchain-ollama
+langchain-text-splitters
+sentence-transformers
+ollama
+SpeechRecognition
+PyAudio
+pyttsx3
