@@ -1,6 +1,6 @@
 import streamlit as st
 
-from auth import authenticate_user
+from auth import authenticate_user, create_user
 from admin.dashboard import show_dashboard
 from rag.rag_engine import ElectricalRAG
 from voice.voice_engine import listen, speak
@@ -170,13 +170,13 @@ def logout():
 
 def show_login():
     """
-    Display the EKIP login screen.
+    Display the EKIP login and student registration screen.
     """
 
     st.title("⚡ EKIP")
 
     st.caption(
-        "Student Dashboard - Electrical Knowledge & Intelligence Platform"
+        "Electrical Knowledge & Intelligence Platform"
     )
 
     st.divider()
@@ -185,60 +185,188 @@ def show_login():
 
     with center:
 
-        st.subheader("Login")
-
-        username = st.text_input(
-            "Username",
-            key="login_username",
+        login_tab, register_tab = st.tabs(
+            ["Login", "Register"]
         )
 
-        password = st.text_input(
-            "Password",
-            type="password",
-            key="login_password",
-        )
+        # ====================================================
+        # LOGIN
+        # ====================================================
 
-        if st.button(
-            "Login",
-            use_container_width=True,
-        ):
+        with login_tab:
 
-            if not username or not password:
+            st.subheader("Login")
 
-                st.error(
-                    "Please enter your username and password."
+            username = st.text_input(
+                "Username",
+                key="login_username",
+            )
+
+            password = st.text_input(
+                "Password",
+                type="password",
+                key="login_password",
+            )
+
+            if st.button(
+                "Login",
+                use_container_width=True,
+                key="login_button",
+            ):
+
+                if not username or not password:
+
+                    st.error(
+                        "Please enter your username and password."
+                    )
+
+                    return
+
+                user = authenticate_user(
+                    username,
+                    password,
                 )
 
-                return
+                if user is None:
 
-            user = authenticate_user(
-                username,
-                password,
-            )
+                    st.error(
+                        "Invalid username or password."
+                    )
 
-            if user is None:
+                    return
 
-                st.error(
-                    "Invalid username or password."
+                st.session_state.authenticated = True
+                st.session_state.user = user
+
+                # Remove login fields from the session.
+                st.session_state.pop(
+                    "login_username",
+                    None,
                 )
 
-                return
+                st.session_state.pop(
+                    "login_password",
+                    None,
+                )
 
-            st.session_state.authenticated = True
-            st.session_state.user = user
+                st.rerun()
 
-            st.session_state.pop(
-                "login_username",
-                None,
+        # ====================================================
+        # STUDENT REGISTRATION
+        # ====================================================
+
+        with register_tab:
+
+            st.subheader("Create Student Account")
+
+            name = st.text_input(
+                "Full Name",
+                key="register_name",
             )
 
-            st.session_state.pop(
-                "login_password",
-                None,
+            email = st.text_input(
+                "Email",
+                key="register_email",
             )
 
-            st.rerun()
+            username = st.text_input(
+                "Username",
+                key="register_username",
+            )
 
+            password = st.text_input(
+                "Password",
+                type="password",
+                key="register_password",
+            )
+
+            confirm_password = st.text_input(
+                "Confirm Password",
+                type="password",
+                key="register_confirm_password",
+            )
+
+            if st.button(
+                "Create Student Account",
+                use_container_width=True,
+                key="register_button",
+            ):
+
+                if not name or not email or not username or not password:
+                    st.error(
+                        "Please fill in all required fields."
+                    )
+                    return
+
+                if password != confirm_password:
+                    st.error(
+                        "Passwords do not match."
+                    )
+                    return
+
+                if len(password) < 6:
+                    st.error(
+                        "Password must be at least 6 characters."
+                    )
+                    return
+
+                try:
+
+                    create_user(
+                        name=name.strip(),
+                        email=email.strip(),
+                        username=username.strip(),
+                        password=password,
+                        role="student",
+                    )
+
+                    st.success(
+                        "Student account created successfully. "
+                        "You can now log in."
+                    )
+
+                    # Clear registration fields.
+                    st.session_state.pop(
+                        "register_name",
+                        None,
+                    )
+
+                    st.session_state.pop(
+                        "register_email",
+                        None,
+                    )
+
+                    st.session_state.pop(
+                        "register_username",
+                        None,
+                    )
+
+                    st.session_state.pop(
+                        "register_password",
+                        None,
+                    )
+
+                    st.session_state.pop(
+                        "register_confirm_password",
+                        None,
+                    )
+
+                except Exception as error:
+
+                    error_message = str(error).lower()
+
+                    if (
+                        "duplicate" in error_message
+                        or "unique" in error_message
+                        or "already exists" in error_message
+                    ):
+                        st.error(
+                            "Username or email is already registered."
+                        )
+                    else:
+                        st.error(
+                            f"Could not create account: {error}"
+                        )
 
 # ============================================================
 # AUTHENTICATION GATE
