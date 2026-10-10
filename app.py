@@ -1,5 +1,6 @@
 import streamlit as st
 
+from auth import authenticate_user
 from rag.rag_engine import ElectricalRAG
 from voice.voice_engine import listen, speak
 
@@ -136,8 +137,244 @@ st.markdown(
 
 
 # ============================================================
+# AUTHENTICATION SESSION
+# ============================================================
+
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if "user" not in st.session_state:
+    st.session_state.user = None
+
+
+def logout():
+    """
+    Log the current user out and clear user-specific session state.
+    """
+
+    st.session_state.authenticated = False
+    st.session_state.user = None
+
+    # Clear student-specific state.
+    for key in [
+        "chats",
+        "current_chat_id",
+        "chat_counter",
+        "voice_output",
+    ]:
+        st.session_state.pop(key, None)
+
+    st.rerun()
+
+
+def show_login():
+    """
+    Display the EKIP login screen.
+    """
+
+    st.title("⚡ EKIP")
+
+    st.caption(
+        "Electrical Knowledge & Intelligence Platform"
+    )
+
+    st.divider()
+
+    left, center, right = st.columns([1, 2, 1])
+
+    with center:
+
+        st.subheader("Login")
+
+        username = st.text_input(
+            "Username",
+            key="login_username",
+        )
+
+        password = st.text_input(
+            "Password",
+            type="password",
+            key="login_password",
+        )
+
+        if st.button(
+            "Login",
+            use_container_width=True,
+        ):
+
+            if not username or not password:
+
+                st.error(
+                    "Please enter your username and password."
+                )
+
+                return
+
+            user = authenticate_user(
+                username,
+                password,
+            )
+
+            if user is None:
+
+                st.error(
+                    "Invalid username or password."
+                )
+
+                return
+
+            st.session_state.authenticated = True
+            st.session_state.user = user
+
+            st.session_state.pop(
+                "login_username",
+                None,
+            )
+
+            st.session_state.pop(
+                "login_password",
+                None,
+            )
+
+            st.rerun()
+
+
+# ============================================================
+# AUTHENTICATION GATE
+# ============================================================
+
+if not st.session_state.authenticated:
+
+    show_login()
+
+    # Nothing below this point is accessible
+    # until the user successfully authenticates.
+
+    st.stop()
+
+
+# ============================================================
+# ROLE HELPERS
+# ============================================================
+
+def is_admin():
+    return (
+        st.session_state.authenticated
+        and st.session_state.user is not None
+        and st.session_state.user["role"] == "admin"
+    )
+
+
+def is_student():
+    return (
+        st.session_state.authenticated
+        and st.session_state.user is not None
+        and st.session_state.user["role"] == "student"
+    )
+
+
+# ============================================================
+# ADMIN AREA
+# ============================================================
+
+def show_admin_dashboard():
+    """
+    Temporary Phase 2.4 admin dashboard.
+
+    The complete admin dashboard will be implemented
+    in Phase 2.6.
+    """
+
+    with st.sidebar:
+
+        st.title("⚡ EKIP")
+
+        st.caption(
+            "Electrical Knowledge & Intelligence Platform"
+        )
+
+        st.divider()
+
+        st.caption("ADMIN")
+
+        st.write(
+            f"Logged in as: "
+            f"{st.session_state.user['name']}"
+        )
+
+        st.caption("Role: Administrator")
+
+        if st.button(
+            "Logout",
+            use_container_width=True,
+        ):
+            logout()
+
+    st.title("⚡ EKIP Admin")
+
+    st.caption(
+        "Electrical Knowledge & Intelligence Platform"
+    )
+
+    st.divider()
+
+    st.subheader("Admin Dashboard")
+
+    st.info(
+        "Admin controls will be available here."
+    )
+
+    st.write(
+        "The administrator does not have access "
+        "to the student RAG chat."
+    )
+
+    st.divider()
+
+    st.subheader("Current Role")
+
+    st.write(
+        f"**User:** {st.session_state.user['name']}"
+    )
+
+    st.write(
+        "**Role:** Administrator"
+    )
+
+
+# ============================================================
+# ROLE ROUTING
+# ============================================================
+
+# IMPORTANT:
+# Admins are routed away from the student application
+# BEFORE the RAG system is initialized.
+
+if is_admin():
+
+    show_admin_dashboard()
+
+    st.stop()
+
+
+# Only students are allowed to continue into the RAG app.
+
+if not is_student():
+
+    st.error("Invalid user role.")
+
+    logout()
+
+    st.stop()
+
+
+# ============================================================
 # LOAD RAG
 # ============================================================
+
+# RAG is loaded ONLY for students.
+#
+# The existing RAG pipeline itself is unchanged.
 
 @st.cache_resource
 def load_rag():
@@ -148,6 +385,7 @@ def load_rag():
         INDEX_PATH,
         METADATA_PATH,
     ):
+
         raise FileNotFoundError(
             "Persistent knowledge base was not found."
         )
@@ -169,7 +407,7 @@ except Exception as error:
 
 
 # ============================================================
-# SESSION STATE
+# STUDENT SESSION STATE
 # ============================================================
 
 if "chats" not in st.session_state:
@@ -205,7 +443,9 @@ def create_new_chat():
 
     st.session_state.chat_counter += 1
 
-    chat_id = f"chat_{st.session_state.chat_counter}"
+    chat_id = (
+        f"chat_{st.session_state.chat_counter}"
+    )
 
     st.session_state.chats[chat_id] = {
         "title": "New Chat",
@@ -257,7 +497,8 @@ def display_sources(sources):
         for source in unique_sources:
 
             st.caption(
-                f"📖 {source['source']} · Page {source['page']}"
+                f"📖 {source['source']} · "
+                f"Page {source['page']}"
             )
 
 
@@ -278,16 +519,14 @@ def process_question(question):
 
     messages = chat["messages"]
 
-    # First question becomes title
-
+    # First question becomes title.
     if not messages:
 
         chat["title"] = generate_chat_title(
             question
         )
 
-    # Store question
-
+    # Store question.
     messages.append(
         {
             "role": "user",
@@ -295,8 +534,7 @@ def process_question(question):
         }
     )
 
-    # Current chat history only
-
+    # Current chat history only.
     history = [
         {
             "role": message["role"],
@@ -305,8 +543,7 @@ def process_question(question):
         for message in messages[:-1]
     ]
 
-    # Generate answer
-
+    # Existing RAG pipeline.
     with st.spinner(
         "Searching the textbook..."
     ):
@@ -316,8 +553,7 @@ def process_question(question):
             chat_history=history,
         )
 
-    # Store answer
-
+    # Store answer.
     messages.append(
         {
             "role": "assistant",
@@ -326,8 +562,7 @@ def process_question(question):
         }
     )
 
-    # Optional voice
-
+    # Optional voice.
     if st.session_state.voice_output:
 
         speak(result["answer"])
@@ -336,7 +571,7 @@ def process_question(question):
 
 
 # ============================================================
-# SIDEBAR
+# STUDENT SIDEBAR
 # ============================================================
 
 with st.sidebar:
@@ -347,12 +582,39 @@ with st.sidebar:
         "Electrical Knowledge & Intelligence Platform"
     )
 
+    # --------------------------------------------------------
+    # USER INFORMATION
+    # --------------------------------------------------------
+
+    st.caption(
+        f"Logged in as: "
+        f"{st.session_state.user['name']}"
+    )
+
+    st.caption(
+        "Role: Student"
+    )
+
+    if st.button(
+        "Logout",
+        use_container_width=True,
+    ):
+
+        logout()
+
+    st.divider()
+
+    # --------------------------------------------------------
+    # CHATS
+    # --------------------------------------------------------
+
     if st.button(
         "＋ New chat",
         use_container_width=True,
     ):
 
         create_new_chat()
+
         st.rerun()
 
     st.divider()
@@ -361,7 +623,10 @@ with st.sidebar:
 
     for chat_id, chat in st.session_state.chats.items():
 
-        if chat_id == st.session_state.current_chat_id:
+        if (
+            chat_id
+            == st.session_state.current_chat_id
+        ):
 
             label = f"● {chat['title']}"
 
@@ -376,22 +641,40 @@ with st.sidebar:
         ):
 
             st.session_state.current_chat_id = chat_id
+
             st.rerun()
 
     st.divider()
 
+    # --------------------------------------------------------
+    # KNOWLEDGE BASE
+    # --------------------------------------------------------
+
     st.caption("KNOWLEDGE BASE")
 
-    st.write("📚 Theraja — Electrical Technology")
+    st.write(
+        "📚 Theraja — Electrical Technology"
+    )
+
     st.caption(
         f"{len(rag.documents):,} indexed chunks"
     )
 
+    # --------------------------------------------------------
+    # AI SYSTEM
+    # --------------------------------------------------------
+
     st.caption("AI SYSTEM")
 
     st.write("🧠 Mistral")
+
     st.write("🔎 FAISS")
+
     st.write("📖 Source grounded")
+
+    # --------------------------------------------------------
+    # VOICE
+    # --------------------------------------------------------
 
     st.caption("VOICE")
 
@@ -416,9 +699,7 @@ messages = current_chat["messages"]
 # MAIN HEADER
 # ============================================================
 
-top_left, top_right = st.columns(
-    [5, 1]
-)
+top_left, top_right = st.columns([5, 1])
 
 with top_left:
 
@@ -433,7 +714,6 @@ with top_right:
     st.write("")
 
     st.caption("● Online")
-
 
 st.divider()
 
@@ -468,7 +748,7 @@ if not messages:
         st.write("")
 
         st.info(
-            "💡 Try asking:  **What is a DC motor?**"
+            "💡 Try asking: **What is a DC motor?**"
         )
 
 
