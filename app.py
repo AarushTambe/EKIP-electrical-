@@ -1,6 +1,7 @@
 import streamlit as st
 
 from auth import authenticate_user
+from admin.dashboard import show_dashboard
 from rag.rag_engine import ElectricalRAG
 from voice.voice_engine import listen, speak
 
@@ -175,7 +176,7 @@ def show_login():
     st.title("⚡ EKIP")
 
     st.caption(
-        "Electrical Knowledge & Intelligence Platform"
+        "Student Dashboard - Electrical Knowledge & Intelligence Platform"
     )
 
     st.divider()
@@ -272,76 +273,6 @@ def is_student():
         and st.session_state.user["role"] == "student"
     )
 
-
-# ============================================================
-# ADMIN AREA
-# ============================================================
-
-def show_admin_dashboard():
-    """
-    Temporary Phase 2.4 admin dashboard.
-
-    The complete admin dashboard will be implemented
-    in Phase 2.6.
-    """
-
-    with st.sidebar:
-
-        st.title("⚡ EKIP")
-
-        st.caption(
-            "Electrical Knowledge & Intelligence Platform"
-        )
-
-        st.divider()
-
-        st.caption("ADMIN")
-
-        st.write(
-            f"Logged in as: "
-            f"{st.session_state.user['name']}"
-        )
-
-        st.caption("Role: Administrator")
-
-        if st.button(
-            "Logout",
-            use_container_width=True,
-        ):
-            logout()
-
-    st.title("⚡ EKIP Admin")
-
-    st.caption(
-        "Electrical Knowledge & Intelligence Platform"
-    )
-
-    st.divider()
-
-    st.subheader("Admin Dashboard")
-
-    st.info(
-        "Admin controls will be available here."
-    )
-
-    st.write(
-        "The administrator does not have access "
-        "to the student RAG chat."
-    )
-
-    st.divider()
-
-    st.subheader("Current Role")
-
-    st.write(
-        f"**User:** {st.session_state.user['name']}"
-    )
-
-    st.write(
-        "**Role:** Administrator"
-    )
-
-
 # ============================================================
 # ROLE ROUTING
 # ============================================================
@@ -352,7 +283,7 @@ def show_admin_dashboard():
 
 if is_admin():
 
-    show_admin_dashboard()
+    show_dashboard(st.session_state.user)
 
     st.stop()
 
