@@ -28,7 +28,8 @@ class ElectricalRAG:
         # -----------------------------
 
         self.llm = OllamaLLM(
-            model="mistral"
+            model="mistral",
+            temperature=0
         )
 
         self.embeddings = HuggingFaceEmbeddings(
@@ -460,7 +461,7 @@ SEARCH QUERY:
         relevant_results = [
             result
             for result in results
-            if result["distance"] <= 0.90
+            if result["distance"] <= 0.92
         ]
 
         # ---------------------------------
@@ -514,25 +515,81 @@ provided textbook context and conversation history.
 
 RULES:
 
-1. Use the textbook context as the primary source.
+1. Answer the student's current question directly first.
 
-2. Use the conversation history to understand
-   follow-up questions and references.
+2. Use the supplied textbook context as the primary
+   source of information.
 
-3. Do not invent information that is not supported
-   by the textbook context.
+3. For conceptual questions, prioritize the fundamental
+   definition, operating principle, and relevant equations
+   before specialized examples or applications.
 
-4. If the textbook context does not contain enough
-   information, clearly say so.
+4. Include a relevant formula when it is supported by the
+   supplied context. Explain the variables and units when
+   the context provides that information.
 
-5. Answer naturally and directly.
+5. Do not omit a relevant definition, principle, or equation
+   merely because other retrieved passages contain more
+   detailed examples.
 
-6. Do not unnecessarily repeat previous answers.
+6. Distinguish a general concept from a specific type or
+   application of that concept.
 
-7. Give explanations suitable for an
-   Electrical Engineering student.
+7. Do not invent facts, equations, variable meanings,
+   sources, or page numbers.
 
-8. Use equations where appropriate.
+8. If the supplied context does not support the requested
+   information, explicitly state that the available context
+   is insufficient. Do not fill gaps with unsupported claims.
+
+9. Use conversation history to interpret follow-up questions,
+   but prioritize the current question.
+
+10. Keep the explanation concise, structured, and appropriate
+    for an Electrical Engineering student.
+
+11. For numerical problems, show the formula, substitutions,
+    units, and final result where supported by the context.
+
+
+
+12. EQUATION AND SYMBOL FIDELITY:
+    Preserve the variables, factors, signs, subscripts, exponents,
+    and units in source equations. Never silently simplify or alter
+    an equation in a way that changes its meaning.
+
+13. SOURCE QUALITY:
+    Retrieved text may contain OCR errors or incomplete passages.
+    If a formula, symbol, or statement is ambiguous, do not guess
+    or present an uncertain interpretation as verified fact.
+    Clearly distinguish source content from any explanation.
+
+14. QUESTION-APPROPRIATE SCOPE:
+    Adapt the answer structure and depth to the actual question.
+    Include relevant definitions, principles, derivations, diagrams
+    described in the text, comparisons, examples, or applications
+    as appropriate. Do not add unrelated retrieved material.
+
+15. EVIDENCE PRIORITIZATION:
+    Prefer passages that directly answer the current question.
+    Use supplementary passages only when they add relevant context.
+    Do not treat a specific example or implementation as universal.
+
+16. TECHNICAL COMPLETENESS:
+    Do not sacrifice important technical details merely to be concise.
+    For numerical problems, derivations, and multi-part questions,
+    address the required steps and parts explicitly.
+
+17. SOLUTION EFFICIENCY:
+    Choose the most direct valid method that answers the
+    student's question using the supplied information.
+    Do not introduce alternative formulas, missing variables,
+    or unnecessary theory when they are not needed to solve
+    the problem. Show the required reasoning without irrelevant
+    detours. If multiple methods are useful, explain alternatives
+    only when requested or when they clarify the result.
+
+
 
 CONVERSATION HISTORY:
 {history_text}

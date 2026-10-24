@@ -4,6 +4,13 @@ from pathlib import Path
 import psycopg
 from psycopg.rows import dict_row
 
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables from the project root
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+load_dotenv(PROJECT_ROOT / ".env.local")
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 SCHEMA_PATH = BASE_DIR / "db" / "schema.sql"
